@@ -4,10 +4,10 @@
  * Endpoints: buses, trips, locations, health
  */
 
-import "dotenv/config";
-import express, { Request, Response, NextFunction } from "express";
-import { Pool } from "pg";
-import { randomUUID } from "crypto";
+require("dotenv").config();
+const express = require("express");
+const { Pool } = require("pg");
+const { randomUUID } = require("crypto");
 
 // ─── Database ────────────────────────────────────────────────────────────────
 
@@ -80,7 +80,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // CORS
-app.use((req: Request, res: Response, next: NextFunction) => {
+app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (origin) res.setHeader("Access-Control-Allow-Origin", origin);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
@@ -92,22 +92,22 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 // ─── Validation Helpers ───────────────────────────────────────────────────────
 
-function isValidUUID(value: string): boolean {
+function isValidUUID(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
-function isValidLatitude(v: number): boolean {
+function isValidLatitude(v) {
   return typeof v === "number" && v >= -90 && v <= 90;
 }
 
-function isValidLongitude(v: number): boolean {
+function isValidLongitude(v) {
   return typeof v === "number" && v >= -180 && v <= 180;
 }
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 // GET /api/health
-app.get("/api/health", async (_req: Request, res: Response) => {
+app.get("/api/health", async (_req, res) => {
   try {
     const result = await pool.query("SELECT NOW() AS db_time");
     res.json({
@@ -115,7 +115,7 @@ app.get("/api/health", async (_req: Request, res: Response) => {
       timestamp: new Date().toISOString(),
       db_time: result.rows[0].db_time,
     });
-  } catch (err: any) {
+  } catch (err) {
     res.status(503).json({
       status: "error",
       message: "Database unreachable",
@@ -125,7 +125,7 @@ app.get("/api/health", async (_req: Request, res: Response) => {
 });
 
 // POST /api/buses
-app.post("/api/buses", async (req: Request, res: Response) => {
+app.post("/api/buses", async (req, res) => {
   const { name, plate } = req.body;
 
   if (!name || typeof name !== "string" || name.trim().length === 0) {
@@ -145,7 +145,7 @@ app.post("/api/buses", async (req: Request, res: Response) => {
       [randomUUID(), name.trim(), plate.trim().toUpperCase()]
     );
     res.status(201).json({ bus: result.rows[0] });
-  } catch (err: any) {
+  } catch (err) {
     if (err.code === "23505") {
       res.status(409).json({ error: `A bus with plate '${plate.trim().toUpperCase()}' already exists.` });
       return;
@@ -156,7 +156,7 @@ app.post("/api/buses", async (req: Request, res: Response) => {
 });
 
 // POST /api/trips
-app.post("/api/trips", async (req: Request, res: Response) => {
+app.post("/api/trips", async (req, res) => {
   const { bus_id, route_name, status } = req.body;
 
   if (!bus_id || typeof bus_id !== "string" || !isValidUUID(bus_id)) {
@@ -190,14 +190,14 @@ app.post("/api/trips", async (req: Request, res: Response) => {
       [randomUUID(), bus_id, route_name.trim(), tripStatus]
     );
     res.status(201).json({ trip: result.rows[0] });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[POST /api/trips]", err);
     res.status(500).json({ error: "Internal server error." });
   }
 });
 
 // GET /api/trips
-app.get("/api/trips", async (_req: Request, res: Response) => {
+app.get("/api/trips", async (_req, res) => {
   try {
     const result = await pool.query(`
       SELECT
@@ -224,14 +224,14 @@ app.get("/api/trips", async (_req: Request, res: Response) => {
       ORDER BY t.created_at DESC
     `);
     res.json({ trips: result.rows });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[GET /api/trips]", err);
     res.status(500).json({ error: "Internal server error." });
   }
 });
 
 // POST /api/location
-app.post("/api/location", async (req: Request, res: Response) => {
+app.post("/api/location", async (req, res) => {
   const { trip_id, latitude, longitude, speed } = req.body;
 
   if (!trip_id || typeof trip_id !== "string" || !isValidUUID(trip_id)) {
@@ -275,14 +275,14 @@ app.post("/api/location", async (req: Request, res: Response) => {
       [randomUUID(), trip_id, lat, lon, spd]
     );
     res.status(201).json({ location: result.rows[0] });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[POST /api/location]", err);
     res.status(500).json({ error: "Internal server error." });
   }
 });
 
 // GET /api/trips/:tripId
-app.get("/api/trips/:tripId", async (req: Request, res: Response) => {
+app.get("/api/trips/:tripId", async (req, res) => {
   const { tripId } = req.params;
 
   if (!isValidUUID(tripId)) {
@@ -334,14 +334,14 @@ app.get("/api/trips/:tripId", async (req: Request, res: Response) => {
       latest_position: latestResult.rows[0] ?? null,
       history: historyResult.rows,
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[GET /api/trips/:tripId]", err);
     res.status(500).json({ error: "Internal server error." });
   }
 });
 
 // 404 handler
-app.use((_req: Request, res: Response) => {
+app.use((_req, res) => {
   res.status(404).json({ error: "Route not found." });
 });
 
@@ -364,4 +364,4 @@ async function bootstrap() {
 
 bootstrap().catch(console.error);
 
-export default app;
+module.exports = app;
